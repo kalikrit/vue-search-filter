@@ -31,7 +31,6 @@
       <p>😕 Ничего не найдено</p>
     </div>
 
-    <!-- Версия -->
     <footer class="version">Версия {{ version }}</footer>
   </div>
 </template>
@@ -46,14 +45,12 @@ import axios from 'axios';
 
 const version = VERSION;
 
-// Состояния
 const items = ref<string[]>([]);
 const filteredItems = ref<string[]>([]);
 const searchQuery = ref('');
 const isLoading = ref(true);
-const cache = new Map<string, string[]>(); // Кэш для результатов
+const cache = new Map<string, string[]>();
 
-// Загрузка данных с бэкенда
 const loadItems = async () => {
   try {
     isLoading.value = true;
@@ -67,7 +64,6 @@ const loadItems = async () => {
   }
 };
 
-// Фильтрация с debounce
 const filterItems = debounce((query: string) => {
   if (!query.trim()) {
     filteredItems.value = items.value;
@@ -76,7 +72,6 @@ const filterItems = debounce((query: string) => {
 
   const trimmedQuery = query.trim().toLowerCase();
 
-  // Проверяем кэш
   if (cache.has(trimmedQuery)) {
     filteredItems.value = cache.get(trimmedQuery)!;
     return;
@@ -86,17 +81,14 @@ const filterItems = debounce((query: string) => {
     item.toLowerCase().includes(trimmedQuery)
   );
 
-  // Сохраняем в кэш
   cache.set(trimmedQuery, result);
   filteredItems.value = result;
 }, 300);
 
-// Следим за изменением поискового запроса
 watch(searchQuery, (newQuery) => {
   filterItems(newQuery);
 });
 
-// Загружаем данные при монтировании
 onMounted(() => {
   loadItems();
 });
@@ -115,21 +107,25 @@ h2 {
   margin-bottom: 20px;
 }
 
+/* ===== Исправление: CSS Grid ===== */
 .search-bar {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
   gap: 12px;
   margin-bottom: 20px;
+  width: 100%;
 }
 
 .search-input {
-  flex: 1;
   padding: 10px 14px;
   border: 1px solid #ccc;
   border-radius: 8px;
   font-size: 16px;
   outline: none;
   transition: border-color 0.3s;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .search-input:focus {
@@ -141,6 +137,7 @@ h2 {
   font-size: 14px;
   color: #666;
   white-space: nowrap;
+  justify-self: end;  /* прижимаем к правому краю */
 }
 
 .scroller {
