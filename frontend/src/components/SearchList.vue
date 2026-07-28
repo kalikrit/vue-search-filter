@@ -10,12 +10,18 @@
         class="search-input"
       />
       <span v-if="isLoading" class="loader">⏳ Загрузка...</span>
-      <span v-else class="counter">Найдено: {{ filteredItems.length }}</span>
+      <span v-else-if="!error" class="counter">Найдено: {{ filteredItems.length }}</span>
+    </div>
+
+    <!-- Состояние ошибки -->
+    <div v-if="error" class="error-state">
+      <p>❌ {{ error }}</p>
+      <button @click="retryLoad" class="retry-btn">Повторить</button>
     </div>
 
     <!-- Виртуальный список -->
     <DynamicScroller
-      v-if="filteredItems.length"
+      v-else-if="filteredItems.length"
       :items="filteredItems"
       :min-item-size="40"
       class="scroller"
@@ -27,7 +33,7 @@
       </template>
     </DynamicScroller>
 
-    <div v-else class="empty-state">
+    <div v-else-if="!isLoading && !error" class="empty-state">
       <p>😕 Ничего не найдено</p>
     </div>
 
@@ -49,19 +55,28 @@ const items = ref<string[]>([]);
 const filteredItems = ref<string[]>([]);
 const searchQuery = ref('');
 const isLoading = ref(true);
+const error = ref<string | null>(null);
 const cache = new Map<string, string[]>();
 
 const loadItems = async () => {
+  error.value = null;
+  isLoading.value = true;
   try {
-    isLoading.value = true;
     const response = await axios.get('/api/items');
     items.value = response.data;
     filteredItems.value = response.data;
-  } catch (error) {
-    console.error('Ошибка загрузки данных:', error);
+  } catch (err) {
+    console.error('Ошибка загрузки данных:', err);
+    error.value = 'Не удалось загрузить данные. Проверьте, запущен ли бэкенд (порт 3000).';
+    items.value = [];
+    filteredItems.value = [];
   } finally {
     isLoading.value = false;
   }
+};
+
+const retryLoad = () => {
+  loadItems();
 };
 
 const filterItems = debounce((query: string) => {
@@ -107,7 +122,6 @@ h2 {
   margin-bottom: 20px;
 }
 
-/* ===== Исправление: CSS Grid ===== */
 .search-bar {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -137,7 +151,36 @@ h2 {
   font-size: 14px;
   color: #666;
   white-space: nowrap;
-  justify-self: end;  /* прижимаем к правому краю */
+  justify-self: end;
+}
+
+.error-state {
+  text-align: center;
+  padding: 30px 20px;
+  background: #fff0f0;
+  border: 1px solid #ffd4d4;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.error-state p {
+  color: #d32f2f;
+  margin-bottom: 12px;
+}
+
+.retry-btn {
+  padding: 8px 20px;
+  background: #d32f2f;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.retry-btn:hover {
+  background: #b71c1c;
 }
 
 .scroller {
