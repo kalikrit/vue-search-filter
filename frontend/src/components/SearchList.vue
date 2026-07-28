@@ -1,0 +1,176 @@
+<template>
+  <div class="search-container">
+    <h2>🔍 Поиск по 10 000 элементам</h2>
+
+    <div class="search-bar">
+      <input
+        v-model="searchQuery"
+        type="text"
+        placeholder="Введите текст для фильтрации..."
+        class="search-input"
+      />
+      <span v-if="isLoading" class="loader">⏳ Загрузка...</span>
+      <span v-else class="counter">Найдено: {{ filteredItems.length }}</span>
+    </div>
+
+    <!-- Виртуальный список -->
+    <DynamicScroller
+      v-if="filteredItems.length"
+      :items="filteredItems"
+      :min-item-size="40"
+      class="scroller"
+    >
+      <template v-slot="{ item, index }">
+        <DynamicScrollerItem :item="item" :active="true" :data-index="index">
+          <div class="list-item">{{ item }}</div>
+        </DynamicScrollerItem>
+      </template>
+    </DynamicScroller>
+
+    <div v-else class="empty-state">
+      <p>😕 Ничего не найдено</p>
+    </div>
+
+    <!-- Версия -->
+    <footer class="version">Версия {{ version }}</footer>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, watch } from 'vue';
+import { debounce } from 'lodash-es';
+import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller';
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
+import { VERSION } from '../version';
+import axios from 'axios';
+
+const version = VERSION;
+
+// Состояния
+const items = ref<string[]>([]);
+const filteredItems = ref<string[]>([]);
+const searchQuery = ref('');
+const isLoading = ref(true);
+const cache = new Map<string, string[]>(); // Кэш для результатов
+
+// Загрузка данных с бэкенда
+const loadItems = async () => {
+  try {
+    isLoading.value = true;
+    const response = await axios.get('/api/items');
+    items.value = response.data;
+    filteredItems.value = response.data;
+  } catch (error) {
+    console.error('Ошибка загрузки данных:', error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Фильтрация с debounce
+const filterItems = debounce((query: string) => {
+  if (!query.trim()) {
+    filteredItems.value = items.value;
+    return;
+  }
+
+  const trimmedQuery = query.trim().toLowerCase();
+
+  // Проверяем кэш
+  if (cache.has(trimmedQuery)) {
+    filteredItems.value = cache.get(trimmedQuery)!;
+    return;
+  }
+
+  const result = items.value.filter((item) =>
+    item.toLowerCase().includes(trimmedQuery)
+  );
+
+  // Сохраняем в кэш
+  cache.set(trimmedQuery, result);
+  filteredItems.value = result;
+}, 300);
+
+// Следим за изменением поискового запроса
+watch(searchQuery, (newQuery) => {
+  filterItems(newQuery);
+});
+
+// Загружаем данные при монтировании
+onMounted(() => {
+  loadItems();
+});
+</script>
+
+<style scoped>
+.search-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.search-input:focus {
+  border-color: #409eff;
+}
+
+.loader,
+.counter {
+  font-size: 14px;
+  color: #666;
+  white-space: nowrap;
+}
+
+.scroller {
+  height: 500px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.list-item {
+  padding: 10px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 15px;
+  transition: background 0.2s;
+}
+
+.list-item:hover {
+  background: #f0f5ff;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 0;
+  color: #999;
+}
+
+.version {
+  text-align: center;
+  margin-top: 30px;
+  font-size: 12px;
+  color: #bbb;
+}
+</style>
